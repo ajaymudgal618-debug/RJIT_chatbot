@@ -1,29 +1,60 @@
 from dotenv import load_dotenv
+
+load_dotenv()  # reads .env in the current working directory, sets GROQ_API_KEY etc.
+
+import os
+
 from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain.agents.middleware import SummarizationMiddleware
+
 from chunk_simple import build_retriever
 
-load_dotenv()  # reads .env in the current working directory, sets GROQ_API_KEY etc.
-FILE_PATH = r"C:\Users\ajaym\OneDrive\Desktop\project_langchain\webscrapping\new_clean_rjit.md"
-GROQ_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "gemma2-9b-it"]
+# Resolved relative to this file's own folder (not the current working
+# directory) so it works the same whether run locally on Windows or on
+# Render's Linux containers. The markdown file must live in the repo,
+# alongside bot.py, and be committed to Git (not .gitignore'd) — Render
+# only has access to what's actually pushed to GitHub.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FILE_PATH = os.path.join(BASE_DIR, "new_clean_rjit.md")
+
+# Groq models currently active (llama-3.3-70b-versatile and llama-3.1-8b-instant
+# were deprecated by Groq on 17-Jun-2026 — these are their recommended replacements).
+GROQ_MODELS = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b",
+    "gemma2-9b-it",
+]
 
 _retriever = None
 
+
 def get_retriever():
+    """Built once per process (embeddings + FAISS index are expensive),
+    then reused across every chat turn and every model switch.
+
+    Plain module-level cache so this also works outside Streamlit
+    (e.g. from the FastAPI process), where st.cache_resource isn't available.
+    """
     global _retriever
     if _retriever is None:
         _retriever = build_retriever(FILE_PATH)
     return _retriever
 
+
 @tool
 def rjit_tool(query: str) -> str:
+    """Search RJIT (Rustamji Institute of Technology) website content and
+    return the most relevant context. Covers courses, fees, scholarships,
+    faculty, departments, hostel, library, placements, labs, and more."""
     docs = get_retriever().invoke(query)
     return "\n\n".join(d.page_content for d in docs)
 
 
 SYSTEM_PROMPT = """You are RJIT Assistant, a helpful chatbot for Rustamji Institute of \
 Technology (RJIT).
+
 Rules you must always follow:
 - Always use the rjit_tool to search for relevant information before answering \
 any question about RJIT (courses, fees, faculty, departments, hostel, library, \
@@ -39,7 +70,12 @@ politely say you can only answer questions about RJIT.
 
 
 def build_agent(model_name, checkpointer):
+    """Builds a fresh agent for the chosen Groq model, sharing the same
+    checkpointer so conversation memory survives a model switch."""
     model_id = f"groq:{model_name}"
+    # Summarization is a background bookkeeping step, not something the user
+    # is waiting on for quality — so it always runs on a small/fast model,
+    # regardless of which (possibly huge) model the user picked for answers.
     summarizer_model_id = "groq:gemma2-9b-it"
     return create_agent(
         model=model_id,
