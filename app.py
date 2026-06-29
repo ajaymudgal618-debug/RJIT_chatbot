@@ -3,7 +3,7 @@ import requests
 import streamlit as st
 from bot import GROQ_MODELS
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "https://rjit-chatbot.onrender.com"
 
 st.set_page_config(page_title="RJIT Assistant", page_icon="🎓")
 st.title("🎓 RJIT College Assistant")
