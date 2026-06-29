@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 
-load_dotenv()  # reads .env in the current working directory, sets GROQ_API_KEY etc.
+load_dotenv()  # reads .env: sets GROQ_API_KEY, HUGGINGFACEHUB_API_TOKEN, etc.
 
 import os
 
