@@ -19,7 +19,10 @@ langgraph>=1.2.6                # InMemorySaver checkpointer, used by create_age
 # --- Retrieval backends ---
 faiss-cpu>=1.14.3               # vector store (use faiss-gpu instead if you have CUDA)
 rank-bm25>=0.2.2                # backs langchain_community.retrievers.BM25Retriever
-sentence-transformers>=5.6.0    # backend for all-MiniLM-L6-v2 embeddings
+# sentence-transformers intentionally NOT installed — we use the API-based
+# HuggingFaceEndpointEmbeddings (langchain-huggingface) instead of loading
+# the model locally, since local loading pulls in torch + transformers
+# (~1-2GB RAM) which doesn't fit Render's free 512MB tier.
 
 # --- LLM provider ---
 groq>=0.30.0,<1.0.0             # langchain-groq (all releases incl. 1.1.3) requires groq<1.0.0
