@@ -2,7 +2,7 @@ import re
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
@@ -41,7 +41,12 @@ def split_chunks(chunks, chunk_size=1250, chunk_overlap=100):
         "\n##### ", "\n#### ", "\n### ", "\n## ", "\n# ",
         "\n", " ", "",
     ]
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,chunk_overlap=chunk_overlap, separators=separators,keep_separator="start",)  # heading stays attached to the chunk it starts
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=separators,
+        keep_separator="start",  # heading stays attached to the chunk it starts
+    )
     result = []
     for c in chunks:
         for piece in splitter.split_text(c["text"]):
@@ -49,15 +54,30 @@ def split_chunks(chunks, chunk_size=1250, chunk_overlap=100):
     return result
 
 
-def build_retriever(file_path, chunk_size=1250, chunk_overlap=100, k=6, bm25_weight=0.5, vector_weight=0.5):
+def build_retriever(file_path, chunk_size=1250, chunk_overlap=100, k=3,
+                     bm25_weight=0.5, vector_weight=0.5):
+    """Runs the full pipeline (read -> URL-level chunks -> sub-chunks ->
+    embeddings -> FAISS + BM25) and returns a ready-to-use hybrid retriever.
+
+    This is the function bot.py imports and wraps in @st.cache_resource,
+    so it is built exactly once per process.
+    """
     chunks = get_chunks(file_path)
     print(f"URL-level chunks: {len(chunks)}")
 
     chunks = split_chunks(chunks, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     print(f"Final chunks: {len(chunks)}")
 
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    docs = [Document(page_content=c["text"], metadata={"url": c["url"]}) for c in chunks]
+    # 1. HuggingFace Embeddings via Inference API (no local model load —
+    # keeps RAM usage low enough for Render's free 512MB tier). Needs
+    # HUGGINGFACEHUB_API_TOKEN set in the environment (free HF account).
+    embeddings = HuggingFaceEndpointEmbeddings(model="sentence-transformers/all-MiniLM-L6-v2")
+
+    # Convert to LangChain Documents (url kept as metadata, not lost)
+    docs = [
+        Document(page_content=c["text"], metadata={"url": c["url"]})
+        for c in chunks
+    ]
 
     # Vector retriever (FAISS)
     db = FAISS.from_documents(docs, embeddings)
