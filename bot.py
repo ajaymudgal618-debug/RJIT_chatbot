@@ -75,7 +75,7 @@ def build_agent(model_name, checkpointer):
     # Summarization is a background bookkeeping step, not something the user
     # is waiting on for quality — so it always runs on a small/fast model,
     # regardless of which (possibly huge) model the user picked for answers.
-    summarizer_model_id = "groq:gemma2-9b-it"
+    summarizer_model_id = "groq:openai/gpt-oss-20b"
     return create_agent(
         model=model_id,
         tools=[rjit_tool],
