@@ -23,8 +23,7 @@ FILE_PATH = os.path.join(BASE_DIR, "new_clean_rjit.md")
 GROQ_MODELS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
-    "qwen/qwen3.6-27b",
-    "gemma2-9b-it",
+    "qwen/qwen3.6-27b"
 ]
 
 _retriever = None
